@@ -1,62 +1,56 @@
 <template>
   <div class="search-page">
     <div class="search-box">
-      <input 
-        v-model="keyword" 
-        type="text" 
+      <input
+        v-model="keyword"
+        type="text"
         class="search-input"
         placeholder="输入关键词搜索..."
         @keyup.enter="search"
-      >
-      <button 
-        class="search-btn" 
-        @click="search" 
-        :disabled="searching"
-      >
+      />
+      <button class="search-btn" :disabled="searching" @click="search">
         {{ searching ? '搜索中...' : '搜索' }}
       </button>
     </div>
 
-    <div v-if="searching && searchProgress > 0" class="progress-bar">
-      <div class="progress-fill" :style="{ width: searchProgress + '%' }"></div>
+    <div v-if="searching" class="progress-bar">
+      <div class="progress-fill" :style="{ width: progress + '%' }"></div>
     </div>
 
-    <div v-if="results.length > 0" class="results-container">
-      <div class="card-grid">
-        <div v-for="(item, index) in sortedResults" :key="item.magnet" class="card">
-          <div class="card-title">{{ item.title }}</div>
-          <div class="card-meta">
-            <span class="tag">{{ item.size }}</span>
-            <span class="tag" :class="getFileTypeClass(item.title)">{{ getFileTypeLabel(item.title) }}</span>
-            <span class="tag">🔥 {{ item.magnetCount }}</span>
-          </div>
-          <div class="magnet-preview">{{ item.magnet.substring(0, 70) }}...</div>
-          <div class="card-actions">
-            <button 
-              class="btn btn-primary" 
-              :class="{ success: copied === index }"
-              @click="copyItem(item, index)"
-            >
-              {{ copied === index ? '已复制' : '复制磁链' }}
-            </button>
-            <button 
-              class="btn btn-icon" 
-              :class="{ favorited: isFavorited(item.magnet) }"
-              @click="toggleFavorite(item)"
-            >
-              {{ isFavorited(item.magnet) ? '❤️' : '🤍' }}
-            </button>
-          </div>
+    <div v-if="results.length" class="card-grid">
+      <div v-for="(item, idx) in sortedResults" :key="item.magnet" class="card">
+        <div class="card-title">{{ item.title }}</div>
+        <div class="card-meta">
+          <span class="tag">{{ item.size }}</span>
+          <span class="tag" :class="getTypeClass(item.title)">{{ getTypeLabel(item.title) }}</span>
+          <span class="tag">🔥 {{ item.magnetCount }}</span>
+        </div>
+        <div class="magnet-preview">{{ item.magnet.slice(0, 70) }}...</div>
+        <div class="card-actions">
+          <button
+            class="btn btn-primary"
+            :class="{ success: copied === idx }"
+            @click="copyItem(item, idx)"
+          >
+            {{ copied === idx ? '已复制' : '复制磁链' }}
+          </button>
+          <button
+            class="btn btn-icon"
+            :class="{ favorited: isFavorited(item.magnet) }"
+            @click="toggleFavorite(item)"
+          >
+            {{ isFavorited(item.magnet) ? '❤️' : '🤍' }}
+          </button>
         </div>
       </div>
     </div>
 
-    <div v-else-if="searched && results.length === 0 && !searching" class="empty-state">
+    <div v-else-if="searched && !searching" class="empty">
       <div class="empty-icon">🔍</div>
       <div>未找到相关结果</div>
     </div>
 
-    <div v-else-if="!searched" class="empty-state">
+    <div v-else-if="!searched" class="empty">
       <div class="empty-icon">🔍</div>
       <div>输入关键词开始搜索</div>
     </div>
@@ -64,26 +58,26 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted } from 'vue'
+import { ref, computed, inject } from 'vue'
 
-const appContext = inject('appContext')
+const ctx = inject('appContext')
 const keyword = ref('')
 const results = ref([])
 const searching = ref(false)
 const searched = ref(false)
-const searchProgress = ref(0)
+const progress = ref(0)
 const copied = ref(-1)
 
-const isFavorited = (magnet) => appContext?.isFavorited(magnet) || false
-const toggleFavorite = (item) => appContext?.toggleFavorite(item)
+const isFavorited = (magnet) => ctx?.isFavorited(magnet) || false
+const toggleFavorite = (item) => ctx?.toggleFavorite(item)
 
-const copyItem = (item, index) => {
-  appContext?.copyMagnet(item.magnet)
-  copied.value = index
+const copyItem = (item, idx) => {
+  ctx?.copyMagnet(item.magnet)
+  copied.value = idx
   setTimeout(() => copied.value = -1, 2500)
 }
 
-const getFileTypeClass = (title) => {
+const getTypeClass = (title) => {
   const t = title.toLowerCase()
   if (/\.(mp4|mkv|avi|mov|wmv|flv|webm)$/.test(t)) return 'video'
   if (/\.(rar|zip|7z|tar|gz)$/.test(t)) return 'zip'
@@ -93,7 +87,7 @@ const getFileTypeClass = (title) => {
   return ''
 }
 
-const getFileTypeLabel = (title) => {
+const getTypeLabel = (title) => {
   const t = title.toLowerCase()
   if (/\.(mp4|mkv|avi|mov|wmv|flv|webm)$/.test(t)) return '视频'
   if (/\.(rar|zip|7z|tar|gz)$/.test(t)) return '压缩'
@@ -103,21 +97,20 @@ const getFileTypeLabel = (title) => {
   return '其他'
 }
 
-const sortedResults = computed(() => {
-  return [...results.value].sort((a, b) => {
+const sortedResults = computed(() =>
+  [...results.value].sort((a, b) => {
     if (b.magnetCount !== a.magnetCount) return b.magnetCount - a.magnetCount
     return b.sizeBytes - a.sizeBytes
   })
-})
+)
 
-const generateMagnetCount = (magnetHash) => {
-  let hash = 0
-  for (let i = 0; i < magnetHash.length; i++) {
-    const charCode = magnetHash.charCodeAt(i)
-    hash = ((hash << 5) - hash) + charCode
-    hash = hash & hash
+const genMagnetCount = (hash) => {
+  let h = 0
+  for (const c of hash) {
+    h = ((h << 5) - h) + c.charCodeAt(0)
+    h = h & h
   }
-  return Math.abs(hash % 50) + 1
+  return Math.abs(h % 50) + 1
 }
 
 const search = async () => {
@@ -126,113 +119,71 @@ const search = async () => {
   searching.value = true
   searched.value = true
   results.value = []
-  searchProgress.value = 0
+  progress.value = 0
 
-  if (appContext) {
-    appContext.statusText.value = '正在搜索...'
-    appContext.statusClass.value = 'searching'
-  }
+  ctx.statusText.value = '正在搜索...'
+  ctx.statusClass.value = 'searching'
 
-  // 模拟搜索结果（因为网页版无法直接跨域请求 clm50.top）
-  await new Promise(resolve => setTimeout(resolve, 1000))
+  await new Promise(r => setTimeout(r, 1000))
 
-  const mockResults = [
-    {
-      title: '示例资源1.2024.1080p.mp4',
-      size: '2.5 GB',
-      sizeBytes: 2684354560,
-      magnet: 'magnet:?xt=urn:btih:example11111111111111111111111111111111'
-    },
-    {
-      title: '另一个资源.BluRay.720p.mkv',
-      size: '1.8 GB',
-      sizeBytes: 1932735283,
-      magnet: 'magnet:?xt=urn:btih:example22222222222222222222222222222222'
-    },
-    {
-      title: '合集.zip',
-      size: '500 MB',
-      sizeBytes: 524288000,
-      magnet: 'magnet:?xt=urn:btih:example33333333333333333333333333333333'
-    }
+  const mockData = [
+    { title: '示例资源1.2024.1080p.mp4', size: '2.5 GB', sizeBytes: 2684354560, magnet: 'magnet:?xt=urn:btih:example11111111111111111111111111111111' },
+    { title: '另一个资源.BluRay.720p.mkv', size: '1.8 GB', sizeBytes: 1932735283, magnet: 'magnet:?xt=urn:btih:example22222222222222222222222222222222' },
+    { title: '合集.zip', size: '500 MB', sizeBytes: 524288000, magnet: 'magnet:?xt=urn:btih:example33333333333333333333333333333333' },
+    { title: '高清电影.HDRip.1080p.mp4', size: '3.2 GB', sizeBytes: 3435973836, magnet: 'magnet:?xt=urn:btih:example44444444444444444444444444444444' },
+    { title: '电视剧全集中文字幕.mkv', size: '8.5 GB', sizeBytes: 9126805504, magnet: 'magnet:?xt=urn:btih:example55555555555555555555555555555555' }
   ]
 
-  for (let i = 0; i < mockResults.length; i++) {
-    const item = {
-      ...mockResults[i],
-      magnetCount: generateMagnetCount(mockResults[i].magnet)
-    }
-    results.value.push(item)
-    searchProgress.value = Math.round(((i + 1) / mockResults.length) * 100)
-    await new Promise(resolve => setTimeout(resolve, 200))
+  for (let i = 0; i < mockData.length; i++) {
+    results.value.push({
+      ...mockData[i],
+      magnetCount: genMagnetCount(mockData[i].magnet)
+    })
+    progress.value = Math.round(((i + 1) / mockData.length) * 100)
+    await new Promise(r => setTimeout(r, 200))
   }
 
   searching.value = false
-  if (appContext) {
-    appContext.statusText.value = `搜索完成，共 ${results.value.length} 个结果`
-    appContext.statusClass.value = 'success'
-  }
+  ctx.statusText.value = `搜索完成，共 ${results.value.length} 个结果`
+  ctx.statusClass.value = 'success'
 }
-
-onMounted(() => {
-  // 检查是否有保存的主题
-  if (localStorage.getItem('darkMode') === 'true') {
-    document.documentElement.classList.add('dark')
-  }
-})
 </script>
 
 <style scoped>
-.search-page {
-  max-width: 1200px;
-  margin: 0 auto;
-}
+.search-page { max-width: 1200px; margin: 0 auto; }
 
-.search-box {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-}
+.search-box { display: flex; gap: 12px; margin-bottom: 24px; }
 
 .search-input {
   flex: 1;
   padding: 14px 20px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 12px;
   font-size: 16px;
-  background: var(--bg-card);
-  color: var(--text-primary);
+  background: var(--bg3);
+  color: var(--text);
   outline: none;
 }
 
-.search-input:focus {
-  border-color: var(--accent);
-}
+.search-input:focus { border-color: var(--accent); }
 
 .search-btn {
   padding: 0 32px;
   border: none;
   border-radius: 12px;
   background: var(--accent);
-  color: white;
+  color: #fff;
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s;
 }
 
-.search-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.search-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+.search-btn:hover:not(:disabled) { opacity: 0.9; }
+.search-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .progress-bar {
   height: 6px;
-  background: var(--bg-secondary);
+  background: var(--bg2);
   border-radius: 3px;
   margin-bottom: 24px;
   overflow: hidden;
@@ -244,10 +195,6 @@ onMounted(() => {
   transition: width 0.3s;
 }
 
-.results-container {
-  margin-top: 24px;
-}
-
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -255,8 +202,8 @@ onMounted(() => {
 }
 
 .card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  background: var(--bg3);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -280,17 +227,13 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
+.card-meta { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .tag {
   font-size: 12px;
   padding: 3px 8px;
   border-radius: 6px;
-  background: var(--bg-secondary);
+  background: var(--bg2);
 }
 
 .tag.video { background: #ff6b6b20; color: #ff6b6b; }
@@ -301,18 +244,14 @@ onMounted(() => {
 
 .magnet-preview {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--text2);
   font-family: monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.card-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: auto;
-}
+.card-actions { display: flex; gap: 8px; margin-top: auto; }
 
 .btn {
   padding: 8px 12px;
@@ -327,43 +266,30 @@ onMounted(() => {
 .btn-primary {
   flex: 1;
   background: var(--accent);
-  color: white;
+  color: #fff;
 }
 
-.btn-primary:hover {
-  background: var(--accent-hover);
-}
-
-.btn-primary.success {
-  background: var(--success);
-}
+.btn-primary:hover { opacity: 0.9; }
+.btn-primary.success { background: var(--success); }
 
 .btn-icon {
   padding: 8px 12px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+  background: var(--bg2);
+  color: var(--text);
 }
 
-.btn-icon:hover {
-  background: var(--border-color);
-}
+.btn-icon:hover { background: var(--border); }
+.btn-icon.favorited { color: var(--danger); }
 
-.btn-icon.favorited {
-  color: var(--danger);
-}
-
-.empty-state {
+.empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: var(--text-secondary);
+  color: var(--text2);
   gap: 16px;
 }
 
-.empty-icon {
-  font-size: 64px;
-  opacity: 0.5;
-}
+.empty-icon { font-size: 64px; opacity: 0.5; }
 </style>

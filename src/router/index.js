@@ -1,12 +1,12 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import SearchPage from '../views/SearchPage.vue'
-import FavoritesPage from '../views/FavoritesPage.vue'
-import SettingsPage from '../views/SettingsPage.vue'
+import Search from '../views/Search.vue'
+import Favorites from '../views/Favorites.vue'
+import Settings from '../views/Settings.vue'
 
 const routes = [
-  { path: '/', name: 'Search', component: SearchPage },
-  { path: '/favorites', name: 'Favorites', component: FavoritesPage },
-  { path: '/settings', name: 'Settings', component: SettingsPage }
+  { path: '/', component: Search },
+  { path: '/favorites', component: Favorites },
+  { path: '/settings', component: Settings }
 ]
 
 const router = createRouter({
